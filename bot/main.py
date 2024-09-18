@@ -1,16 +1,22 @@
 import logging
 import os
+import asyncio
 
 from dotenv import load_dotenv
 
 from plugin_manager import PluginManager
 from openai_helper import OpenAIHelper, default_max_tokens, are_functions_available
 from telegram_bot import ChatGPTTelegramBot
+from db import db
 
 
 def main():
     # Read .env file
     load_dotenv()
+
+    # Database start
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(db._init())
 
     # Setup logging
     logging.basicConfig(

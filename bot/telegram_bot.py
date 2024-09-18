@@ -22,7 +22,7 @@ from utils import is_group_chat, get_thread_id, message_text, wrap_with_indicato
     cleanup_intermediate_files
 from openai_helper import OpenAIHelper, localized_text
 from usage_tracker import UsageTracker
-
+from db import db, Message
 
 class ChatGPTTelegramBot:
     """
@@ -42,14 +42,14 @@ class ChatGPTTelegramBot:
             BotCommand(command='help', description=localized_text('help_description', bot_language)),
             BotCommand(command='reset', description=localized_text('reset_description', bot_language)),
             BotCommand(command='stats', description=localized_text('stats_description', bot_language)),
-            BotCommand(command='resend', description=localized_text('resend_description', bot_language))
+            # BotCommand(command='resend', description=localized_text('resend_description', bot_language))
         ]
         # If imaging is enabled, add the "image" command to the list
         if self.config.get('enable_image_generation', False):
             self.commands.append(BotCommand(command='image', description=localized_text('image_description', bot_language)))
 
-        if self.config.get('enable_tts_generation', False):
-            self.commands.append(BotCommand(command='tts', description=localized_text('tts_description', bot_language)))
+        # if self.config.get('enable_tts_generation', False):
+        #     self.commands.append(BotCommand(command='tts', description=localized_text('tts_description', bot_language)))
 
         self.group_commands = [BotCommand(
             command='chat', description=localized_text('chat_description', bot_language)
@@ -72,9 +72,7 @@ class ChatGPTTelegramBot:
                 '\n\n' +
                 '\n'.join(commands_description) +
                 '\n\n' +
-                localized_text('help_text', bot_language)[1] +
-                '\n\n' +
-                localized_text('help_text', bot_language)[2]
+                localized_text('help_text', bot_language)[1]
         )
         await update.message.reply_text(help_text, disable_web_page_preview=True)
 
@@ -658,6 +656,10 @@ class ChatGPTTelegramBot:
         chat_id = update.effective_chat.id
         user_id = update.message.from_user.id
         prompt = message_text(update.message)
+
+        message_record = Message(str(update.message.from_user.id), 'bot', 'text', prompt)
+        record_id = await db.manager.add_message(message_record) 
+
         self.last_message[chat_id] = prompt
 
         if is_group_chat(update):
@@ -695,6 +697,8 @@ class ChatGPTTelegramBot:
                 stream_chunk = 0
 
                 async for content, tokens in stream_response:
+                    await db.manager.update_message(record_id, content)
+                    
                     if is_direct_result(content):
                         return await handle_direct_result(self.config, update, content)
 
@@ -768,6 +772,8 @@ class ChatGPTTelegramBot:
                 async def _reply():
                     nonlocal total_tokens
                     response, total_tokens = await self.openai.get_chat_response(chat_id=chat_id, query=prompt)
+                    
+                    await db.manager.update_message(record_id, response)
 
                     if is_direct_result(response):
                         return await handle_direct_result(self.config, update, response)
@@ -1059,10 +1065,10 @@ class ChatGPTTelegramBot:
         application.add_handler(CommandHandler('reset', self.reset))
         application.add_handler(CommandHandler('help', self.help))
         application.add_handler(CommandHandler('image', self.image))
-        application.add_handler(CommandHandler('tts', self.tts))
+        # application.add_handler(CommandHandler('tts', self.tts))
         application.add_handler(CommandHandler('start', self.help))
         application.add_handler(CommandHandler('stats', self.stats))
-        application.add_handler(CommandHandler('resend', self.resend))
+        # application.add_handler(CommandHandler('resend', self.resend))
         application.add_handler(CommandHandler(
             'chat', self.prompt, filters=filters.ChatType.GROUP | filters.ChatType.SUPERGROUP)
         )
