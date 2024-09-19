@@ -13,7 +13,6 @@ class Database:
         self.manager: DbManager = DbManager(self._engine)
 
     async def _init(self):
-        print('ASDFSADSADSADSADSA')
         await self.create_tables()
 
     async def create_tables(self):

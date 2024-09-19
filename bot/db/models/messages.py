@@ -11,6 +11,7 @@ class Message(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     sender: Mapped[str] = mapped_column(default=None, nullable=True)
+    username: Mapped[str] = mapped_column(default=None, nullable=True)
     receiver: Mapped[str] = mapped_column(default=None, nullable=True)
     type: Mapped[str] = mapped_column(default=None, nullable=True)
     request: Mapped[str] = mapped_column(default=None, nullable=True)
@@ -21,13 +22,15 @@ class Message(Base):
     def __init__(
         self, 
         sender: str | None = None,
-        receiver: str | None = None,
+        username: str | None = None,
+        receiver: str = 'bot',
         type: str | None = None,
         request: str | None = None,
         response: str | None = None,
         ):
 
         self.sender = sender
+        self.username = username
         self.receiver = receiver
         self.type = type
         self.request = request

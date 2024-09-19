@@ -240,6 +240,10 @@ class ChatGPTTelegramBot:
             return
 
         image_query = message_text(update.message)
+
+        image_message = Message(str(update.message.from_user.id), update.message.from_user.name, 'bot', 'image', image_query)
+        record_id = await db.manager.add_message(image_message)
+
         if image_query == '':
             await update.effective_message.reply_text(
                 message_thread_id=get_thread_id(update),
@@ -253,6 +257,8 @@ class ChatGPTTelegramBot:
         async def _generate():
             try:
                 image_url, image_size = await self.openai.generate_image(prompt=image_query)
+                await db.manager.update_message(record_id, image_url)
+
                 if self.config['image_receive_mode'] == 'photo':
                     await update.effective_message.reply_photo(
                         reply_to_message_id=get_reply_to_message_id(self.config, update),
@@ -657,7 +663,7 @@ class ChatGPTTelegramBot:
         user_id = update.message.from_user.id
         prompt = message_text(update.message)
 
-        message_record = Message(str(update.message.from_user.id), 'bot', 'text', prompt)
+        message_record = Message(str(update.message.from_user.id), update.message.from_user.name,  'bot', 'text', prompt)
         record_id = await db.manager.add_message(message_record) 
 
         self.last_message[chat_id] = prompt
@@ -698,7 +704,7 @@ class ChatGPTTelegramBot:
 
                 async for content, tokens in stream_response:
                     await db.manager.update_message(record_id, content)
-                    
+
                     if is_direct_result(content):
                         return await handle_direct_result(self.config, update, content)
 
