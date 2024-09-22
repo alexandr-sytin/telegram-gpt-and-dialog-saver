@@ -22,7 +22,7 @@ from dotenv import load_dotenv
 from utils import is_group_chat, get_thread_id, message_text, wrap_with_indicator, split_into_chunks, \
     edit_message_with_retry, get_stream_cutoff_values, is_allowed, get_remaining_budget, is_admin, is_within_budget, \
     get_reply_to_message_id, add_chat_request_to_usage_tracker, error_handler, is_direct_result, handle_direct_result, \
-    cleanup_intermediate_files
+    cleanup_intermediate_files, MessageType
 from openai_helper import OpenAIHelper, localized_text
 from usage_tracker import UsageTracker
 from db import db, Message
@@ -249,7 +249,7 @@ class ChatGPTTelegramBot:
 
         image_query = message_text(update.message)
 
-        image_message = Message(str(update.message.from_user.id), update.message.from_user.name, 'bot', 'image', image_query)
+        image_message = Message(update.message.from_user.id, update.message.from_user.name, image_query, MessageType.text)
         record_id = await db.manager.add_message(image_message)
 
         if image_query == '':
@@ -272,7 +272,7 @@ class ChatGPTTelegramBot:
                 img_path = f"{os.environ.get('IMAGE_DIR')}/{update.message.from_user.id}_{datetime.now():_%Y%m%d_%H%M%S}.webp"
                 img.save(img_path, "webp")
                 
-                await db.manager.update_message(record_id, img_path)
+                await db.manager.update_message(record_id, img_path, MessageType.image)
 
                 if self.config['image_receive_mode'] == 'photo':
                     await update.effective_message.reply_photo(
@@ -406,7 +406,7 @@ class ChatGPTTelegramBot:
 
             try:
                 transcript = await self.openai.transcribe(filename_mp3)
-                audio_message = Message(str(user_id), update.message.from_user.name, 'bot', 'audio', transcript)
+                audio_message = Message(user_id, update.message.from_user.name, transcript, MessageType.audio)
                 record_id = await db.manager.add_message(audio_message)
 
                 transcription_price = self.config['transcription_price']
@@ -436,7 +436,7 @@ class ChatGPTTelegramBot:
                 else:
                     # Get the response of the transcript
                     response, total_tokens = await self.openai.get_chat_response(chat_id=chat_id, query=transcript)
-                    await db.manager.update_message(record_id, response)
+                    await db.manager.update_message(record_id, response, MessageType.text)
 
                     self.usage[user_id].add_chat_tokens(total_tokens, self.config['token_price'])
                     if str(user_id) not in allowed_user_ids and 'guests' in self.usage:
@@ -523,6 +523,12 @@ class ChatGPTTelegramBot:
                 original_image = Image.open(temp_file)
                 
                 original_image.save(temp_file_png, format='PNG')
+                
+                
+                img_path = f"{os.environ.get('IMAGE_DIR')}/{update.message.from_user.id}_{datetime.now():_%Y%m%d_%H%M%S}.webp"
+                original_image.save(img_path, format='webp')
+                message = Message(str(update.message.from_user.id), update.message.from_user.name, 'bot', )
+                
                 logging.info(f'New vision request received from user {update.message.from_user.name} '
                              f'(id: {update.message.from_user.id})')
 
@@ -681,7 +687,7 @@ class ChatGPTTelegramBot:
         user_id = update.message.from_user.id
         prompt = message_text(update.message)
 
-        message_record = Message(str(update.message.from_user.id), update.message.from_user.name,  'bot', 'text', prompt)
+        message_record = Message(update.message.from_user.id, update.message.from_user.name, prompt, MessageType.text)
         record_id = await db.manager.add_message(message_record) 
 
         self.last_message[chat_id] = prompt
@@ -721,7 +727,7 @@ class ChatGPTTelegramBot:
                 stream_chunk = 0
 
                 async for content, tokens in stream_response:
-                    await db.manager.update_message(record_id, content)
+                    await db.manager.update_message(record_id, content, MessageType.text)
 
                     if is_direct_result(content):
                         return await handle_direct_result(self.config, update, content)
@@ -797,7 +803,7 @@ class ChatGPTTelegramBot:
                     nonlocal total_tokens
                     response, total_tokens = await self.openai.get_chat_response(chat_id=chat_id, query=prompt)
                     
-                    await db.manager.update_message(record_id, response)
+                    await db.manager.update_message(record_id, response, MessageType.text)
 
                     if is_direct_result(response):
                         return await handle_direct_result(self.config, update, response)

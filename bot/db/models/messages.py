@@ -10,30 +10,30 @@ class Message(Base):
     __tablename__ = 'messages'
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    sender: Mapped[str] = mapped_column(default=None, nullable=True)
+    user_id: Mapped[int] = mapped_column(default=None, nullable=True)
     username: Mapped[str] = mapped_column(default=None, nullable=True)
-    receiver: Mapped[str] = mapped_column(default=None, nullable=True)
-    type: Mapped[str] = mapped_column(default=None, nullable=True)
     request: Mapped[str] = mapped_column(default=None, nullable=True)
+    request_type: Mapped[str] = mapped_column(default=None, nullable=True)
     response: Mapped[str] = mapped_column(default=None, nullable=True)
+    response_type: Mapped[str] = mapped_column(default=None, nullable=True)
     time: Mapped[datetime]
 
 
     def __init__(
         self, 
-        sender: str | None = None,
+        user_id: int | None = None,
         username: str | None = None,
-        receiver: str = 'bot',
-        type: str | None = None,
         request: str | None = None,
+        request_type: str | None = None,
         response: str | None = None,
+        response_type: str | None = None,
         ):
 
-        self.sender = sender
+        self.user_id = user_id
         self.username = username
-        self.receiver = receiver
-        self.type = type
         self.request = request
+        self.request_type = request_type
         self.response = response
+        self.response_type = response_type
         self.time = datetime.utcnow()
 

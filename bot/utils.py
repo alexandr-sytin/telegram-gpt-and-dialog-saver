@@ -1,4 +1,5 @@
 from __future__ import annotations
+from enum import StrEnum, auto
 
 import asyncio
 import itertools
@@ -388,3 +389,9 @@ def encode_image(fileobj):
 def decode_image(imgbase64):
     image = imgbase64[len('data:image/jpeg;base64,'):]
     return base64.b64decode(image)
+
+
+class MessageType(StrEnum):
+    text = auto()
+    image = auto()
+    audio = auto()

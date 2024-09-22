@@ -33,10 +33,10 @@ class DbManager:
             await session.refresh(message)
         return message.id
 
-    async def update_message(self, id: int, response: str) -> None:
+    async def update_message(self, id: int, response: str, response_type: str | None = None) -> None:
         print('updating')
         print(id, response)
         async with self.get_session() as session:
-            statement = update(Message).where(Message.id == id).values(response=response)
+            statement = update(Message).where(Message.id == id).values(response=response, response_type=response_type)
             await session.execute(statement=statement)
             await session.commit()

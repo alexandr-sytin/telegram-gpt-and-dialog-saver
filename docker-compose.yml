@@ -6,6 +6,7 @@ services:
       dockerfile: Dockerfile
     volumes:
       - .:/app
+      - ./images/:/images/:rw
     restart: unless-stopped
   db:
     container_name: bot_db
