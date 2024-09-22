@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime
 import logging
 import os
 import io
+import requests
 
 from uuid import uuid4
 from telegram import BotCommandScopeAllGroupChats, Update, constants
@@ -15,6 +17,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, \
 
 from pydub import AudioSegment
 from PIL import Image
+from dotenv import load_dotenv
 
 from utils import is_group_chat, get_thread_id, message_text, wrap_with_indicator, split_into_chunks, \
     edit_message_with_retry, get_stream_cutoff_values, is_allowed, get_remaining_budget, is_admin, is_within_budget, \
@@ -35,15 +38,20 @@ class ChatGPTTelegramBot:
         :param config: A dictionary containing the bot configuration
         :param openai: OpenAIHelper object
         """
+
+        load_dotenv()
+
         self.config = config
         self.openai = openai
         bot_language = self.config['bot_language']
         self.commands = [
             BotCommand(command='help', description=localized_text('help_description', bot_language)),
             BotCommand(command='reset', description=localized_text('reset_description', bot_language)),
-            BotCommand(command='stats', description=localized_text('stats_description', bot_language)),
             # BotCommand(command='resend', description=localized_text('resend_description', bot_language))
         ]
+        # if self.config.get('enable_image_generation', False):
+        #     self.commands.append(BotCommand(command='stats', description=localized_text('stats_description', bot_language)))
+
         # If imaging is enabled, add the "image" command to the list
         # if self.config.get('enable_image_generation', False):
         #     self.commands.append(BotCommand(command='image', description=localized_text('image_description', bot_language)))
@@ -257,7 +265,14 @@ class ChatGPTTelegramBot:
         async def _generate():
             try:
                 image_url, image_size = await self.openai.generate_image(prompt=image_query)
-                await db.manager.update_message(record_id, image_url)
+
+                # Process image
+                response = requests.get(image_url)
+                img = Image.open(io.BytesIO(response.content)).convert('RGB')
+                img_path = f"{os.environ.get('IMAGE_DIR')}/{update.message.from_user.id}_{datetime.now():_%Y%m%d_%H%M%S}.webp"
+                img.save(img_path, "webp")
+                
+                await db.manager.update_message(record_id, img_path)
 
                 if self.config['image_receive_mode'] == 'photo':
                     await update.effective_message.reply_photo(
@@ -391,6 +406,8 @@ class ChatGPTTelegramBot:
 
             try:
                 transcript = await self.openai.transcribe(filename_mp3)
+                audio_message = Message(str(user_id), update.message.from_user.name, 'bot', 'audio', transcript)
+                record_id = await db.manager.add_message(audio_message)
 
                 transcription_price = self.config['transcription_price']
                 self.usage[user_id].add_transcription_seconds(audio_track.duration_seconds, transcription_price)
@@ -419,6 +436,7 @@ class ChatGPTTelegramBot:
                 else:
                     # Get the response of the transcript
                     response, total_tokens = await self.openai.get_chat_response(chat_id=chat_id, query=transcript)
+                    await db.manager.update_message(record_id, response)
 
                     self.usage[user_id].add_chat_tokens(total_tokens, self.config['token_price'])
                     if str(user_id) not in allowed_user_ids and 'guests' in self.usage:

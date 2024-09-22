@@ -3,6 +3,7 @@ import os
 import asyncio
 
 from dotenv import load_dotenv
+from pathlib import Path
 
 from plugin_manager import PluginManager
 from openai_helper import OpenAIHelper, default_max_tokens, are_functions_available
@@ -17,6 +18,9 @@ def main():
     # Database start
     loop = asyncio.get_event_loop()
     loop.run_until_complete(db._init())
+
+    # Create image folder 
+    Path(os.environ.get('IMAGE_DIR')).mkdir(exist_ok=True)
 
     # Setup logging
     logging.basicConfig(
