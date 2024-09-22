@@ -395,3 +395,4 @@ class MessageType(StrEnum):
     text = auto()
     image = auto()
     audio = auto()
+    vision = auto()

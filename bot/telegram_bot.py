@@ -527,7 +527,7 @@ class ChatGPTTelegramBot:
                 
                 img_path = f"{os.environ.get('IMAGE_DIR')}/{update.message.from_user.id}_{datetime.now():_%Y%m%d_%H%M%S}.webp"
                 original_image.save(img_path, format='webp')
-                message = Message(update.message.from_user.id, update.message.from_user.name, img_path, MessageType.image)
+                message = Message(update.message.from_user.id, update.message.from_user.name, prompt, MessageType.vision, optional=img_path)
                 record_id = await db.manager.add_message(message)
 
                 logging.info(f'New vision request received from user {update.message.from_user.name} '
