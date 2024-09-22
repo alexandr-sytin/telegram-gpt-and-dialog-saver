@@ -527,8 +527,9 @@ class ChatGPTTelegramBot:
                 
                 img_path = f"{os.environ.get('IMAGE_DIR')}/{update.message.from_user.id}_{datetime.now():_%Y%m%d_%H%M%S}.webp"
                 original_image.save(img_path, format='webp')
-                message = Message(str(update.message.from_user.id), update.message.from_user.name, 'bot', )
-                
+                message = Message(update.message.from_user.id, update.message.from_user.name, img_path, MessageType.image)
+                record_id = await db.manager.add_message(message)
+
                 logging.info(f'New vision request received from user {update.message.from_user.name} '
                              f'(id: {update.message.from_user.id})')
 
@@ -555,7 +556,11 @@ class ChatGPTTelegramBot:
                 backoff = 0
                 stream_chunk = 0
 
+
                 async for content, tokens in stream_response:
+                    
+                    await db.manager.update_message(record_id, content, MessageType.text)
+                    
                     if is_direct_result(content):
                         return await handle_direct_result(self.config, update, content)
 
@@ -630,6 +635,8 @@ class ChatGPTTelegramBot:
 
                 try:
                     interpretation, total_tokens = await self.openai.interpret_image(chat_id, temp_file_png, prompt=prompt)
+                    await db.manager.update_message(record_id, interpretation, MessageType.text)
+
 
 
                     try:
